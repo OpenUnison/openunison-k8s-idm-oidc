@@ -455,7 +455,6 @@ k8s.postWS('/api/v1/namespaces/openunison/secrets',JSON.stringify(amqEnvSecrets)
 
 print("Create OpenUnison Secret");
 
-inProp["K8S_TOKEN"] = token;
 
 ouSecrets = {
     "apiVersion":"v1",
