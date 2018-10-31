@@ -2,10 +2,10 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.openunison</groupId>
-  <artifactId>openunison-k8s-activedirectory</artifactId>
+  <artifactId>openunison-k8s-idm-oidc</artifactId>
   <packaging>war</packaging>
-  <version>1.0.15</version>
-  <name>openunison-k8s-activedirectory</name>
+  <version>1.0.16</version>
+  <name>openunison-k8s-idm-oidc</name>
   <url>http://openunison.io</url>
   <repositories>
     <repository>
@@ -29,19 +29,19 @@
     <dependency>
       <groupId>com.tremolosecurity.unison</groupId>
       <artifactId>openunison-on-undertow</artifactId>
-      <version>1.0.15</version>
+      <version>1.0.16</version>
     </dependency>
     <dependency>
       <groupId>com.tremolosecurity.unison</groupId>
       <artifactId>open-unison-webapp</artifactId>
-      <version>1.0.15</version>
+      <version>1.0.16</version>
       <type>war</type>
       <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>com.tremolosecurity.unison</groupId>
       <artifactId>open-unison-webapp</artifactId>
-      <version>1.0.15</version>
+      <version>1.0.16</version>
       <type>pom</type>
     </dependency>
     <dependency>
@@ -52,7 +52,7 @@
     <dependency>
       <groupId>com.tremolosecurity.unison</groupId>
       <artifactId>openunison-on-undertow</artifactId>
-      <version>1.0.15</version>
+      <version>1.0.16</version>
     </dependency>
   </dependencies>
   <build>

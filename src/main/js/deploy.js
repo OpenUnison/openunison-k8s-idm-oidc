@@ -189,8 +189,7 @@ certInfo = {
 x509data = CertUtils.createCertificate(certInfo);
 CertUtils.saveX509ToKeystore(ouKs,ksPassword,"unison-saml2-rp-sig",x509data);
 
-print("Storing k8s and AD certs");
-ouKs.setCertificateEntry('trusted-adldaps',k8s.getCertificate('trusted-adldaps'));
+print("Storing k8s certs");
 ouKs.setCertificateEntry('k8s-master',k8s.getCertificate('k8s-master'));
 
 print("Generate Ingress Certificate");
