@@ -261,6 +261,7 @@ spec:
         resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
+        serviceAccount: openunison
         volumeMounts:
         - mountPath: /etc/openunison
           name: secret-volume

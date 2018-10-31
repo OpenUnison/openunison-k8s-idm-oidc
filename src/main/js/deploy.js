@@ -306,10 +306,7 @@ k8s.postWS('/api/v1/namespaces',JSON.stringify(ouNS));
 print("Create openunison service account");
 
 k8s.postWS('/api/v1/namespaces/openunison/serviceaccounts',JSON.stringify({"apiVersion":"v1","kind":"ServiceAccount","metadata":{"creationTimestamp":null,"name":"openunison"}}));
-res = k8s.callWS('/api/v1/namespaces/openunison/serviceaccounts/openunison');
-tokenName = JSON.parse(res.data).secrets[0].name;
-res = k8s.callWS("/api/v1/namespaces/openunison/secrets/" + tokenName);
-token = new java.lang.String(java.util.Base64.getDecoder().decode(JSON.parse(res.data).data.token));
+
 
 print("Creating RBAC Bindings");
 
