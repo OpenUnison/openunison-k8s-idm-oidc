@@ -15,7 +15,7 @@ This OpenUnison application provides an identity management hub for Kubernetes t
 
 This application runs inside of Kubernetes, leveraging Kubernetes for scalability, secret management and deployment. 
 
-![Kubernetes Identity Manager Architecture](imgs/openunison_qs_kubernetes.png)
+![Kubernetes Identity Manager Architecture](imgs/openunison_qs_kubernetes_oidc.png)
 
 When a user accesses Kubernetes using OpenUnison, they'll access both te self service portal and the dashboard through OpenUnison (instead of directly via an ingress).  OpenUnison will inject the user's identity into each request, allowing the dashboard to act on their behalf.
 
