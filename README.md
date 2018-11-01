@@ -2,18 +2,18 @@
 
 [![Alt text](http://i.vimeocdn.com/video/671443572_640.jpg)](https://vimeo.com/246464075)
 
-*Short video of logging into Kubernetes and using kubectl using ADFS*
+*Short video of logging into Kubernetes and using kubectl using OpenID Connect*
 
-This quick start for OpenUnison is designed to provide an identity management hub for Kubernetes that will:
+This OpenUnison application provides an identity management hub for Kubernetes that will:
 
-1. Support authentication with Active Directory for both `kubectl` and the dashboard (https://github.com/kubernetes/dashboard)
+1. Support authentication with OpenID Connect for both `kubectl` and the dashboard (https://github.com/kubernetes/dashboard)
 2. Automated creation of Namespaces
-2. Self service portal for requesting access to and getting approval for individual namespaces
-3. Self service requests for gaining cluster level roles
-4. Support removing users' access
-5. Reporting
+3. Self service portal for requesting access to and getting approval for individual namespaces
+4. Self service requests for gaining cluster level roles
+5. Support removing users' access
+6. Reporting
 
-The quick start is designed to run inside of Kubernetes, leveraging Kubernetes for scalability and secret management and deployment. 
+This application runs inside of Kubernetes, leveraging Kubernetes for scalability, secret management and deployment. 
 
 ![Kubernetes Identity Manager Architecture](imgs/openunison_qs_kubernetes.png)
 
@@ -46,12 +46,12 @@ Prior to deploying OpenUnison you will need:
 1. Kubernetes 1.10 or higher
 2. The Nginx Ingress Controler deployed (https://kubernetes.github.io/ingress-nginx/deploy/)
 3. A MySQL or MariaDB Database
-4. The certificate authority certificate for your Active Directory forest
+4. Information from your OpenID Connect Identity Provider per "Create Environments File" in the next section.  When registering OpenUnison with your identity provider, use the hostname and `/auth/oidc` as the redirect.  For instance if OpenUnison will be running on `k8sou.tremolo.lan.com` then the redirect_uri will be `https://k8sou.tremolo.lan/auth/oidc`
 5. An SMTP server for sending notifications
 
-## Create Environments File
+## Create input.props
 
-OpenUnison stores environment specific information, such as host names, passwords, etc, in a properties file that will then be loaded by OpenUnison and merged with its configruation.  This file will be stored in Kubernetes as a secret then accessed by OpenUnison on startup to fill in the `#[]` parameters in `unison.xml` and `myvd.conf`.  For instance the parameter `#[OU_HOST]` in `unison.xml` would have an entry in this file.  Below is an example file:
+OpenUnison stores environment specific information, such as host names, passwords, etc, in a properties file that will then be loaded by OpenUnison and merged with its configruation.  This file will be stored in Kubernetes as a secret then accessed by OpenUnison on startup to fill in the `#[]` parameters in `unison.xml` and `myvd.conf`.  For instance the parameter `#[OU_HOST]` in `unison.xml` would have an entry in this file.  The deployer looks for a file called `input.props`.  Below is an example file:
 
 ```properties
 OU_HOST=k8sou.tremolo.lan
@@ -71,13 +71,6 @@ SMTP_USER=donotreply@domain.com
 SMTP_PASSWORD=xxxx
 SMTP_FROM=donotreply@domain.com
 SMTP_TLS=true
-AD_BASE_DN=cn=users,dc=ent2k12,dc=domain,dc=com
-AD_HOST=192.168.2.75
-AD_PORT=636
-AD_BIND_DN=cn=Administrator,cn=users,dc=ent2k12,dc=domain,dc=com
-AD_BIND_PASSWORD=password
-AD_CON_TYPE=ldaps
-SRV_DNS=false
 OU_CERT_OU=k8s
 OU_CERT_O=Tremolo Security
 OU_CERT_L=Alexandria
@@ -86,6 +79,11 @@ OU_CERT_C=US
 unisonKeystorePassword=start123
 USE_K8S_CM=true
 SESSION_INACTIVITY_TIMEOUT_SECONDS=900
+OIDC_CLIENT_ID=my_idp_client_id
+OIDC_CLIENT_SECRET=SOME_SECRET
+OIDC_IDP_AUTH_URL=https://accounts.google.com/o/oauth2/v2/auth
+OIDC_IDP_TOKEN_URL=https://oauth2.googleapis.com/token
+OIDC_IDP_LIMIT_DOMAIN=tremolosecurity-test.com
 ```
 
 *Detailed Description or Properties*
@@ -109,13 +107,6 @@ SESSION_INACTIVITY_TIMEOUT_SECONDS=900
 | SMTP_PASSWORD | Password for accessing the SMTP server (may be blank) |
 | SMTP_FROM | The email address that messages from OpenUnison are addressed from |
 | SMTP_TLS | true or false, depending if SMTP should use start tls |
-| AD_BASE_DN | The search base for Active Directory |
-| AD_HOST | The host name for a domain controller or VIP.  If using SRV records to determine hosts, this should be the fully qualified domain name of the domain |
-| AD_PORT | The port to communicate with Active Directory |
-| AD_BIND_DN | The full distinguished name (DN) of a read-only service account for working with Active Directory |
-| AD_BIND_PASSWORD | The password for the `AD_BIND_DN` |
-| AD_CON_TYPE | `ldaps` for secure, `ldap` for plain text |
-| SRV_DNS | If `true`, OpenUnison will lookup domain controllers by the domain's SRV DNS record |
 | OU_CERT_OU | The `OU` attribute for the forward facing certificate |
 | OU_CERT_O | The `O` attribute for the forward facing certificate |
 | OU_CERT_L | The `L` attribute for the forward facing certificate |
@@ -124,14 +115,18 @@ SESSION_INACTIVITY_TIMEOUT_SECONDS=900
 | unisonKeystorePassword | The password for OpenUnison's keystore |
 | USE_K8S_CM | Tells the deployment system if you should use k8s' built in certificate manager.  If your distrobution doesn't support this (such as Canonical and Rancher), set this to false |
 | SESSION_INACTIVITY_TIMEOUT_SECONDS | The number of seconds of inactivity before the session is terminated, also the length of the refresh token's session |
-
+| OIDC_CLIENT_ID | The client ID registered with your identity provider |
+| OIDC_CLIENT_SECRET | The secret provided by your identity provider |
+| OIDC_IDP_AUTH_URL | Your identity provider's authorization url |
+| OIDC_IDP_TOKEN_URL | Your identity provider's token url |
+| OIDC_IDP_LIMIT_DOMAIN | An email domain to limit access to |
 
 ## Prepare Deployment
 
 Perform these steps from a location with a working `kubectl` configuration:
 
 1. Create a directory to store `input.props`, ie `/path/to/props` and put `input.props` in that directory
-2. Create a directory for the Active Directory root certificate and store it there with the name `trusted-adldaps.pem`, ie `/path/to/certs`
+2. Create an empty directory for certificates, ie `/path/to/certs`
 
 ## Deployment
 
