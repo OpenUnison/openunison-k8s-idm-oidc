@@ -49,6 +49,18 @@ Prior to deploying OpenUnison you will need:
 4. Information from your OpenID Connect Identity Provider per "Create Environments File" in the next section.  When registering OpenUnison with your identity provider, use the hostname and `/auth/oidc` as the redirect.  For instance if OpenUnison will be running on `k8sou.tremolo.lan.com` then the redirect_uri will be `https://k8sou.tremolo.lan/auth/oidc`
 5. An SMTP server for sending notifications
 
+### Required Attributes for Your Identity Provider
+
+In order to integrate your identity provide make sure the following attributes are in the `id_token`:
+
+* sub
+* email
+* given_name
+* family_name
+* name
+
+These are then mapped into the user's object in OpenUnison for personalization.
+
 ## Create input.props
 
 OpenUnison stores environment specific information, such as host names, passwords, etc, in a properties file that will then be loaded by OpenUnison and merged with its configruation.  This file will be stored in Kubernetes as a secret then accessed by OpenUnison on startup to fill in the `#[]` parameters in `unison.xml` and `myvd.conf`.  For instance the parameter `#[OU_HOST]` in `unison.xml` would have an entry in this file.  The deployer looks for a file called `input.props`.  Below is an example file:
@@ -133,7 +145,7 @@ Perform these steps from a location with a working `kubectl` configuration:
 Based on where you put the files from `Prepare Deployment`, run the following:
 
 ```
-curl https://raw.githubusercontent.com/TremoloSecurity/kubernetes-artifact-deployment/master/src/main/bash/deploy_openunison.sh | bash -s /path/to/certs /path/to/props https://raw.githubusercontent.com/TremoloSecurity/openunison-qs-kubernetes/activedirectory/src/main/yaml/artifact-deployment.yaml
+curl https://raw.githubusercontent.com/TremoloSecurity/kubernetes-artifact-deployment/master/src/main/bash/deploy_openunison.sh | bash -s /path/to/certs /path/to/props https://raw.githubusercontent.com/OpenUnison/openunison-k8s-idm-oidc/master/src/main/yaml/artifact-deployment.yaml
 ```
 
 The output will look like:
