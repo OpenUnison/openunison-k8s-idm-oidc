@@ -47,8 +47,7 @@ Prior to deploying OpenUnison you will need:
 4. Information from your OpenID Connect Identity Provider per "Create Environments File" in the next section.  When registering OpenUnison with your identity provider, use the hostname and `/auth/oidc` as the redirect.  For instance if OpenUnison will be running on `k8sou.tremolo.lan.com` then the redirect_uri will be `https://k8sou.tremolo.lan/auth/oidc`
 5. An SMTP server for sending notifications
 6. Deploy the dashboard to your cluster
-
-This installer will create the `openunison` namespace, create certificates for you (including for the dashboard) and the approprioate `CronJob` needed to make sure that certificates are kept updated.
+7. helm 3.0+
 
 ### Required Attributes for Your Identity Provider
 
@@ -62,113 +61,114 @@ In order to integrate your identity provide make sure the following attributes a
 
 These are then mapped into the user's object in OpenUnison for personalization.  
 
-## Create Environments File
 
-Orchestra is driven by a Kubernetes Custom Resource that stores configuration properties.  Secret properties are stored in a source secret.  The deployment tool will create the correct objects for you.  You'll need to create two properties files, one for secret information (such as passwords) and one for non-secret data.  First create a directory for non secret data, ie `/path/to/orchestra-configmaps` and create a file called `input.props` with the below content customized for your environment:
-
-```properties
-OU_HOST=k8sou.tremolo.lan
-K8S_DASHBOARD_HOST=k8sdb.tremolo.lan
-K8S_URL=https://k8s-installer-master.tremolo.lan:6443
-OU_HIBERNATE_DIALECT=org.hibernate.dialect.MySQL5InnoDBDialect
-OU_QUARTZ_DIALECT=org.quartz.impl.jdbcjobstore.StdJDBCDelegate
-OU_JDBC_DRIVER=com.mysql.jdbc.Driver
-OU_JDBC_URL=jdbc:mysql://dbs.tremolo.lan:3308/unison
-OU_JDBC_USER=root
-OU_JDBC_VALIDATION=SELECT 1
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=donotreply@domain.com
-SMTP_FROM=donotreply@domain.com
-SMTP_TLS=true
-OU_CERT_OU=k8s
-OU_CERT_O=Tremolo Security
-OU_CERT_L=Alexandria
-OU_CERT_ST=Virginia
-OU_CERT_C=US
-USE_K8S_CM=true
-SESSION_INACTIVITY_TIMEOUT_SECONDS=900
-OIDC_CLIENT_ID=my_idp_client_id
-OIDC_IDP_AUTH_URL=https://accounts.google.com/o/oauth2/v2/auth
-OIDC_IDP_TOKEN_URL=https://oauth2.googleapis.com/token
-OIDC_IDP_LIMIT_DOMAIN=tremolosecurity-test.com
-```
-
-Also, place any certificates you want Orchestra to trust, such as the certificate for your identity provider, in PEM format in `/path/to/orchestra-configmaps`.  Any certificates stored as PEM files will be trusted by Orchestra.
-
-Next create a directory for secret information, such as `/path/to/orchestra-secrets` with a file called `input.props` with at least the below information:
+## Add Tremolo Security's Helm Repo
 
 ```
-OU_JDBC_PASSWORD=start123
-SMTP_PASSWORD=xxxx
-unisonKeystorePassword=start123
-OIDC_CLIENT_SECRET=SOME_SECRET
+helm repo add tremolo https://nexus.tremolo.io/repository/helm/
+helm repo update
 ```
 
-*Detailed Description of Non-Secret Properties*
+## Deploy The OpenUnison Operator
+
+Create your namespace
+```
+kubectl create ns openunison
+```
+
+Deploy the operator
+```
+helm install openunison tremolo/openunison-operator --namespace openunison
+```
+
+Wait for the operator pod to be available
+```
+watch kubectl get pods -n openunison
+```
+
+## Create A Secret For Your Passwords and Client Secret
+
+Create a secret in the `openunison` namespace:
+
+```
+apiVersion: v1
+type: Opaque
+metadata:
+  name: orchestra-secrets-source
+  namespace: openunison
+data:
+  OIDC_CLIENT_SECRET: aW0gYSBzZWNyZXQ=
+  K8S_DB_SECRET: aW0gYSBzZWNyZXQ=
+  SMTP_PASSWORD: aW0gYSBzZWNyZXQ=
+  OU_JDBC_PASSWORD: aW0gYSBzZWNyZXQ=
+  unisonKeystorePassword: aW0gYSBzZWNyZXQ=
+kind: Secret
+```
 
 | Property | Description |
 | -------- | ----------- |
-| OU_HOST  | The host name for OpenUnison.  This is what user's will put into their browser to login to Kubernetes |
-| K8S_DASHBOARD_HOST | The host name for the dashboard.  This is what users will put into the browser to access to the dashboard. **NOTE:** `OU_HOST` and `K8S_DASHBOARD_HOST` **MUST** share the same DNS suffix. Both `OU_HOST` and `K8S_DASHBOARD_HOST` **MUST** point to OpenUnison |
-| K8S_URL | The URL for the Kubernetes API server |
-| OU_HIBERNATE_DIALECT | Hibernate dialect for accessing the database.  Unless customizing for a different database do not change |
-| OU_QUARTZ_DIALECT | Dialect used by the Quartz Scheduler.  Unless customizing for a different database do not change  |
-| OU_JDBC_DRIVER | JDBC driver for accessing the database.  Unless customizing for a different database do not change |
-| OU_JDBC_URL | The URL for accessing the database |
-| OU_JDBC_USER | The user for accessing the database |
-| OU_JDBC_VALIDATION | A query for validating database connections/ Unless customizing for a different database do not change |
-| SMTP_HOST | Host for an email server to send notifications |
-| SMTP_PORT | Port for an email server to send notifications |
-| SMTP_USER | Username for accessing the SMTP server (may be blank) |
-| SMTP_FROM | The email address that messages from OpenUnison are addressed from |
-| SMTP_TLS | true or false, depending if SMTP should use start tls |
-| OU_CERT_OU | The `OU` attribute for the forward facing certificate |
-| OU_CERT_O | The `O` attribute for the forward facing certificate |
-| OU_CERT_L | The `L` attribute for the forward facing certificate |
-| OU_CERT_ST | The `ST` attribute for the forward facing certificate |
-| OU_CERT_C | The `C` attribute for the forward facing certificate |
-| USE_K8S_CM | Tells the deployment system if you should use k8s' built in certificate manager.  If your distribution doesn't support this (such as Canonical and Rancher), set this to false |
-| SESSION_INACTIVITY_TIMEOUT_SECONDS | The number of seconds of inactivity before the session is terminated, also the length of the refresh token's session |
-| OIDC_CLIENT_ID | The client ID registered with your identity provider |
-| OIDC_IDP_AUTH_URL | Your identity provider's authorization url |
-| OIDC_IDP_TOKEN_URL | Your identity provider's token url |
-| OIDC_IDP_LIMIT_DOMAIN | An email domain to limit access to |
-| K8S_DASHBOARD_NAMESPACE | **Optional** If specified, the namespace for the dashboard.  For the 1.x dashboard this is `kube-system`, for the 2.x dashboard this is `kubernetes-dashboard` |
-| K8S_CLUSTER_NAME | **Optional** If specified, the name of the cluster to use in the `./kube-config`.  Defaults to `kubernetes` |
-
-*Detailed Description of Secret Properties*
-
-| Property | Description |
-| -------- | ----------- |
+| OIDC_CLIENT_SECRET | The secret provided by your identity provider |
+| unisonKeystorePassword | The password for OpenUnison's keystore, should NOT contain an ampersand (`&`) |
+| K8S_DB_SECRET | A random string of characters used to secure the SSO process with the dashboard.  This should be long and random, with no ampersands (`&`) |
 | OU_JDBC_PASSWORD | The password for accessing the database |
 | SMTP_PASSWORD | Password for accessing the SMTP server (may be blank) |
-| unisonKeystorePassword | The password for OpenUnison's keystore |
-| OIDC_CLIENT_SECRET | The secret provided by your identity provider |
 
-Based on where you put the files from `Prepare Deployment`, run the following:
+## Deploy OpenUnison
 
-```
-curl https://raw.githubusercontent.com/TremoloSecurity/kubernetes-artifact-deployment/master/src/main/bash/deploy_openunison.sh | bash -s /path/to/configmaps /path/to/secrets https://raw.githubusercontent.com/OpenUnison/openunison-k8s-idm-oidc/master/src/main/yaml/artifact-deployment.yaml
-```
+Copy `values.yaml` and update as appropriate:
 
-The output will look like:
+| Property | Description |
+| -------- | ----------- |
+| network.openunison_host | The host name for OpenUnison.  This is what user's will put into their browser to login to Kubernetes |
+| network.dashboard_host | The host name for the dashboard.  This is what users will put into the browser to access to the dashboard. **NOTE:** `network.openunison_host` and `network.dashboard_host` Both `network.openunison_host` and `network.dashboard_host` **MUST** point to OpenUnison |
+| network.api_server_host | The host name to use for the api server reverse proxy.  This is what `kubectl` will interact with to access your cluster. **NOTE:** `network.openunison_host` and `network.dashboard_host` |
+| network.k8s_url | The URL for the Kubernetes API server | 
+| network.session_inactivity_timeout_seconds | The number of seconds of inactivity before the session is terminated, also the length of the refresh token's session |
+| cert_template.ou | The `OU` attribute for the forward facing certificate |
+| cert_template.o | The `O` attribute for the forward facing certificate |
+| cert_template.l | The `L` attribute for the forward facing certificate |
+| cert_template.st | The `ST` attribute for the forward facing certificate |
+| cert_template.c | The `C` attribute for the forward facing certificate |
+| certs.use_k8s_cm  | Tells the deployment system if you should use k8s' built in certificate manager.  If your distribution doesn't support this (such as Canonical and Rancher), set this to false |
+| myvd_config_path | The path to the MyVD configuration file, unless being customized, use `WEB-INF/myvd.conf` |
+| dashboard.namespace | The namespace for the dashboard.  For the 1.x dashboard this is `kube-system`, for the 2.x dashboard this is `kubernetes-dashboard` |
+| dashboard.cert_name | The name of the secret in the dashboard's namespace that stores the certificate for the dashboard |
+| dashboard.label | The label of the dashboard pod, this is used to delete the pod once new certificates are generated |
+| dashboard.service_name | The name of the service object for the dashboard |
+| k8s_cluster_name | The name of the cluster to use in the `./kube-config`.  Defaults to `kubernetes` |
+| image | The name of the image to use |
+| enable_impersonation | If `true`, OpenUnison will run in impersonation mode.  Instead of OpenUnison being integrated with Kubernetes via OIDC, OpenUnison will be a reverse proxy and impersonate users.  This is useful with cloud deployments where oidc is not an option |
+| monitoring.prometheus_service_account | The prometheus service account to authorize access to the /monitoring endpoint |
+| database.hibernate_dialect | Hibernate dialect for accessing the database.  Unless customizing for a different database do not change |
+| database.quartz_dialect | Dialect used by the Quartz Scheduler.  Unless customizing for a different database do not change  |
+| database.driver | JDBC driver for accessing the database.  Unless customizing for a different database do not change |
+| database.url | The URL for accessing the database |
+| database.user | The user for accessing the database |
+| database.validation | A query for validating database connections/ Unless customizing for a different database do not change |
+| smtp.host | Host for an email server to send notifications |
+| smtp.port | Port for an email server to send notifications |
+| smtp.user | Username for accessing the SMTP server (may be blank) |
+| smtp.from | The email address that messages from OpenUnison are addressed from |
+| smtp.tls | true or false, depending if SMTP should use start tls |
+| oidc.client_id | The client ID registered with your identity provider |
+| oidc.auth_url | Your identity provider's authorization url |
+| oidc.token_url | Your identity provider's token url |
+| oidc.domain | An email domain to limit access to |
+| oidc.user_in_idtoken | Set to `true` if the user's attributes (such as name and groups), is contained in the user's `id_token`.  Set to `false` if a call to the identity provider's user info endpoint is required to load the full profile |
+| oidc.userinfo_url | If `oidc.user_in_idtoken` is `false`, the `user_info` endpoint for your identity provider |
+| oidc.claims.sub | If specified, the claim from the `id_token` to use for the `sub` attribute |
+| oidc.claims.email | If specified, the claim from the `id_token` to use for the `mail` attribute |
+| oidc.claims.givenName | If specified, the claim from the `id_token` to use for the `givenName` attribute |
+| oidc.claims.familyName | If specified, the claim from the `id_token` to use for the `sn` attribute |
+| oidc.claims.displayName | If specified, the claim from the `id_token` to use for the `dipslayName` attribute |
+| oidc.claims.groups | If specified, the claim from the `id_token` to use for the `groups` attribute |
+| oidc.scopes | The scopes to request, may change based on your identity provider |
 
-```
-namespace/openunison-deploy created
-configmap/extracerts created
-secret/input created
-clusterrolebinding.rbac.authorization.k8s.io/artifact-deployment created
-job.batch/artifact-deployment created
-NAME                        READY     STATUS    RESTARTS   AGE
-artifact-deployment-jzmnr   0/1       Pending   0          0s
-artifact-deployment-jzmnr   0/1       Pending   0         0s
-artifact-deployment-jzmnr   0/1       ContainerCreating   0         0s
-artifact-deployment-jzmnr   1/1       Running   0         4s
-artifact-deployment-jzmnr   0/1       Completed   0         15s
-```
+Additionally, you can add your identity provider's TLS base64 encoded PEM certificate to your values under `trusted_certs` for `pem_b64`.  This will allow OpenUnison to talk to your identity provider using TLS if it doesn't use a commercially signed certificate.
 
-Once you see `Completed`, you can exit the script (`Ctl+C`).  This script will import the OpenUnison operator, create the appropriate Custom Resource Definitions and finally deploy a custom resource based on your configuration.  Once the custom resource is deployed the OpenUnison operator will deploy Orchestra for you. 
+Finally, run the helm chart:
+
+`helm install orchestra tremolo/openunison-k8s-oidc --namespace openunison -f /path/to/values.yaml`
 
 ## Complete SSO Integration with Kubernetes
 
@@ -205,14 +205,17 @@ Once SSO is enabled in the next step, you'll need a cluster administrator to be 
 
 At this point you will be provisioned to the `k8s-cluster-administrators` group in the database that has a RoleBinding to the `cluster-admin` Role.  Logout of Orchestra and log back in.  If you click on your email address in the upper left, you'll see that you have the Role `k8s-cluster-administrators`.  
 
-# Updating Secrets and Certificates
+# Using Your Own Certificates
 
-To update any of the secrets in the source secret:
+If you want to integrate your own certificates see our wiki entry - https://github.com/TremoloSecurity/OpenUnison/wiki/troubleshooting#how-do-i-change-openunisons-certificates
 
-1. Update the `orchestra-secrets-source` secret in the `openunison` namespace as appropriate
-2. Add an annotation (or edit an existing one) on the `orchestra` `openunison` object in the `openunison` namespace
+# Monitoring OpenUnison
 
-This will trigger the operator to update your OpenUnison pods.  To update certificates or non-secret data, just update it in the `orchestra` `openunison` object.
+This deployment comes with a `/metrics` endpoint for monitoring.  For details on how to integrate it into a Prometheus stack - https://github.com/TremoloSecurity/OpenUnison/wiki/troubleshooting#how-do-i-monitor-openunison-with-prometheus.
+
+# Trouble Shooting Help
+
+Please take a look at https://github.com/TremoloSecurity/OpenUnison/wiki/troubleshooting if you're running into issues.  If there isn't an entry there that takes care of your issue, please open an issue on this repo.
 
 # Customizing Orchestra
 
