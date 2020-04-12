@@ -115,7 +115,7 @@ kind: Secret
 
 ## Deploy OpenUnison
 
-Copy `values.yaml` and update as appropriate:
+Copy `values.yaml` (https://raw.githubusercontent.com/OpenUnison/helm-charts/master/openunison-k8s-oidc/values.yaml) and update as appropriate:
 
 | Property | Description |
 | -------- | ----------- |
@@ -164,7 +164,7 @@ Copy `values.yaml` and update as appropriate:
 | oidc.claims.groups | If specified, the claim from the `id_token` to use for the `groups` attribute |
 | oidc.scopes | The scopes to request, may change based on your identity provider |
 
-Additionally, you can add your identity provider's TLS base64 encoded PEM certificate to your values under `trusted_certs` for `pem_b64`.  This will allow OpenUnison to talk to your identity provider using TLS if it doesn't use a commercially signed certificate.
+Additionally, you can add your identity provider's TLS base64 encoded PEM certificate to your values under `trusted_certs` for `pem_b64`.  This will allow OpenUnison to talk to your identity provider using TLS if it doesn't use a commercially signed certificate.  *NOTE* - If you are using a public identity provider like Googl or Okta replace the `trusted_certs` section with `trusted_certs: []`.
 
 Finally, run the helm chart:
 
@@ -172,7 +172,7 @@ Finally, run the helm chart:
 
 ## Complete SSO Integration with Kubernetes
 
-Run `kubectl describe configmap api-server-config -n openunison` to get the SSO integration artifacts.  The output will give you both the API server flags that need to be configured on your API servers.  The certificate that needs to be trusted is in the `ou-tls-certificate` secret in the `openunison` namespace.
+If you are using impersonation, you can skip this section.  Run `kubectl describe configmap api-server-config -n openunison` to get the SSO integration artifacts.  The output will give you both the API server flags that need to be configured on your API servers.  The certificate that needs to be trusted is in the `ou-tls-certificate` secret in the `openunison` namespace.
 
 ## First Login to Orchestra
 
@@ -219,31 +219,7 @@ Please take a look at https://github.com/TremoloSecurity/OpenUnison/wiki/trouble
 
 # Customizing Orchestra
 
-Orchestra is an application built on OpenUnison with several "opinions" on how you should manage authentication in your cluster.  These opinions my be close to what you need, but not exact.  In order to customize Orchestra you'll need:
-
-1. git
-2. OpenJDK 8
-3. Apache Maven
-4. Docker registry
-
-First, fork this GitHub project.  Then make your edits.  To deploy to a local Docker daemon that you want to then use to push to a registry:
-
-```
-mvn clean package
-mvn compile jib:dockerBuild
-docker tag image:version registry/image:version
-docker push registry/image:version
-```
-
-If you have credentials to access a registry remotely and are not running docker locally, you can push the image directly to your registry:
-
-```
-mvn clean package
-export OU_CONTAINER_DEST=registry/image:version
-export OU_REG_USER=registry_user
-export OU_REG_PASSWORD=registry_password
-mvn compile jib:build
-```
+To customize Orchestra - https://github.com/TremoloSecurity/OpenUnison/wiki/troubleshooting#customizing-orchestra
 
 # Whats next?
 Users can now login to create namespaces, request access to cluster admin or request access to other clusters.
